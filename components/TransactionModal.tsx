@@ -48,12 +48,19 @@ export function TransactionModal({
       minute: '2-digit',
     });
   };
+  
+  // If no account is selected, don't render the modal
+  if (!selectedAccount && visible) {
+    console.warn('TransactionModal: No account selected');
+    onCancel();
+    return null;
+  }
 
   return (
     <Modal
       animationType="slide"
       transparent={true}
-      visible={visible}
+      visible={visible && selectedAccount !== null}
       onRequestClose={onCancel}
     >
       <KeyboardAvoidingView 
@@ -67,7 +74,7 @@ export function TransactionModal({
 
               <View style={styles.accountDisplay}>
                 <Text style={styles.accountLabel}>Account</Text>
-                <Text style={styles.accountValue}>{selectedAccount?.name}</Text>
+                <Text style={styles.accountValue}>{selectedAccount?.name || 'No account selected'}</Text>
               </View>
 
               <TextInput

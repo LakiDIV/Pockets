@@ -1,3 +1,4 @@
+import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Transaction } from "@/app/types/transaction";
@@ -9,24 +10,49 @@ interface TransactionCardProps {
   formatDate: (date: string) => string;
 }
 
-export function TransactionCard({
+// Define prop comparison function for memoization
+const arePropsEqual = (
+  prevProps: TransactionCardProps,
+  nextProps: TransactionCardProps
+) => {
+  return (
+    prevProps.transaction.id === nextProps.transaction.id &&
+    prevProps.transaction.amount === nextProps.transaction.amount &&
+    prevProps.transaction.date === nextProps.transaction.date &&
+    prevProps.transaction.description === nextProps.transaction.description &&
+    prevProps.transaction.type === nextProps.transaction.type
+  );
+};
+
+// Base component to be memoized
+function TransactionCardBase({
   transaction,
   formatCurrency,
   formatDate,
 }: TransactionCardProps) {
-  const isUpcoming = new Date(transaction.date) > new Date();
+  // Memoize expensive calculations
+  const isUpcoming = React.useMemo(
+    () => new Date(transaction.date) > new Date(),
+    [transaction.date]
+  );
+
+  // Memoize icon and badge details
+  const { iconName, iconColor } = React.useMemo(() => {
+    return {
+      iconName: transaction.type === "Income"
+        ? "arrow-up-circle-outline" as const
+        : "arrow-down-circle-outline" as const,
+      iconColor: transaction.type === "Income" ? "#86CB8B" : "#E38989"
+    };
+  }, [transaction.type]);
 
   return (
     <View style={[styles.transactionItem, styles.transactionItemSpacing]}>
       <View style={styles.iconContainer}>
         <Ionicons
-          name={
-            transaction.type === "Income"
-              ? "arrow-up-circle-outline"
-              : "arrow-down-circle-outline"
-          }
+          name={iconName}
           size={24}
-          color={transaction.type === "Income" ? "#86CB8B" : "#E38989"}
+          color={iconColor}
         />
       </View>
       <View style={styles.transactionDetails}>
@@ -56,6 +82,9 @@ export function TransactionCard({
     </View>
   );
 }
+
+// Export the memoized component
+export const TransactionCard = React.memo(TransactionCardBase, arePropsEqual);
 
 const styles = StyleSheet.create({
   transactionItem: {

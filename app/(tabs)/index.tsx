@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StorageUtils } from "@/app/utils/storage";
@@ -22,44 +24,58 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { TransactionModal } from "@/components/TransactionModal";
 import { TransactionsBottomSheet } from "@/components/TransactionsBottomSheet";
 import { colors, typography, spacing, layout } from "@/app/styles/shared";
+import { useAccount } from "@/app/context/AccountContext";
+import { PanGestureHandler, State } from "react-native-gesture-handler";
+import { Analytics } from "@/components/Analytics";
 
 export default function HomeScreen() {
-  const [balance, setBalance] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
-    []
-  );
+  const { selectedAccount, refreshAccounts, getLatestAccountData } = useAccount();
+  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [transactionType, setTransactionType] = useState<"Income" | "Expense">(
-    "Income"
-  );
+  const [transactionType, setTransactionType] = useState<"Income" | "Expense">("Income");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isTransactionsVisible, setIsTransactionsVisible] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const screenWidth = Dimensions.get('window').width;
 
   const snapPoints = useMemo(() => ["50%", "85%"], []);
 
   const loadData = useCallback(async () => {
-    const balanceData = await StorageUtils.getBalance();
-    const recentTxs = await StorageUtils.getRecentTransactions(3);
+    if (!selectedAccount) return;
+
+    // Get fresh account data
+    const freshAccount = await getLatestAccountData(selectedAccount.id);
+    if (freshAccount) {
+      setCurrentAccount(freshAccount);
+    }
+
     const allTxs = await StorageUtils.getTransactions();
-    const accounts = await StorageUtils.getAccounts();
+    const accountTxs = allTxs.filter(tx => tx.accountId === selectedAccount.id);
+    const recentTxs = accountTxs
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
 
-    setBalance(balanceData.total);
     setRecentTransactions(recentTxs);
-    setAllTransactions(
-      allTxs.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      )
-    );
-    setSelectedAccount(accounts[0]);
-  }, []);
+    setAllTransactions(accountTxs);
+  }, [selectedAccount, getLatestAccountData]);
 
+  // Update current account when selected account changes
+  useEffect(() => {
+    if (selectedAccount) {
+      setCurrentAccount(selectedAccount);
+    }
+  }, [selectedAccount]);
+
+  // Refresh data periodically
   useEffect(() => {
     loadData();
+    const intervalId = setInterval(loadData, 2000);
+    return () => clearInterval(intervalId);
   }, [loadData]);
 
   const handleAddTransaction = async () => {
@@ -86,6 +102,7 @@ export default function HomeScreen() {
     try {
       await StorageUtils.saveTransaction(newTransaction);
       await loadData();
+      await refreshAccounts();
       setIsModalVisible(false);
       resetForm();
     } catch (error) {
@@ -132,80 +149,132 @@ export default function HomeScreen() {
     []
   );
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationX: translateX } }],
+    { useNativeDriver: true }
+  );
+
+  const onHandlerStateChange = (event) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      const { translationX } = event.nativeEvent;
+      
+      if (translationX > 50) { // Threshold to show analytics
+        Animated.spring(translateX, {
+          toValue: screenWidth * 0.8,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
+
+  if (!currentAccount) {
+    return (
       <SafeAreaView style={styles.container}>
         <View style={styles.mainContent}>
-          <AccountHeader
-            account={selectedAccount}
-            balance={balance}
-            formatCurrency={formatCurrency}
-          />
-
-          <View style={styles.transactionHistoryContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Transactions</Text>
-              <TouchableOpacity onPress={viewAllTransactions}>
-                <Text style={styles.viewAllButton}>View All</Text>
-              </TouchableOpacity>
-            </View>
-
-            {recentTransactions.length > 0 ? (
-              recentTransactions.map((transaction) => (
-                <TransactionCard
-                  key={transaction.id}
-                  transaction={transaction}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                />
-              ))
-            ) : (
-              <View style={styles.noTransactionsContainer}>
-                <Text style={styles.noTransactionsText}>
-                  No recent transactions
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.noAccountText}>Please select an account</Text>
         </View>
-
-        <ActionButtons
-          onIncomePress={() => {
-            setTransactionType("Income");
-            setIsModalVisible(true);
-          }}
-          onExpensePress={() => {
-            setTransactionType("Expense");
-            setIsModalVisible(true);
-          }}
-        />
-
-        <TransactionModal
-          visible={isModalVisible}
-          type={transactionType}
-          amount={amount}
-          description={description}
-          selectedAccount={selectedAccount}
-          selectedDate={selectedDate}
-          onAmountChange={setAmount}
-          onDescriptionChange={setDescription}
-          onDateChange={setSelectedDate}
-          onCancel={() => {
-            setIsModalVisible(false);
-            resetForm();
-          }}
-          onSave={handleAddTransaction}
-        />
-
-        <TransactionsBottomSheet
-          ref={bottomSheetRef}
-          transactions={allTransactions}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-          onClose={handleSheetClose}
-          snapPoints={snapPoints}
-        />
       </SafeAreaView>
+    );
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PanGestureHandler
+        onGestureEvent={onGestureEvent}
+        onHandlerStateChange={onHandlerStateChange}
+      >
+        <Animated.View style={{ flex: 1 }}>
+          <View style={styles.analyticsContainer}>
+            <Analytics />
+          </View>
+          <Animated.View
+            style={[
+              styles.mainContainer,
+              {
+                transform: [{ translateX }],
+              },
+            ]}
+          >
+            <SafeAreaView style={styles.container}>
+              <View style={styles.mainContent}>
+                <AccountHeader
+                  account={currentAccount}
+                  balance={currentAccount.balance}
+                  formatCurrency={formatCurrency}
+                />
+
+                <View style={styles.transactionHistoryContainer}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Recent Transactions</Text>
+                    <TouchableOpacity onPress={viewAllTransactions}>
+                      <Text style={styles.viewAllButton}>View All</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {recentTransactions.length > 0 ? (
+                    recentTransactions.map((transaction) => (
+                      <TransactionCard
+                        key={transaction.id}
+                        transaction={transaction}
+                        formatCurrency={formatCurrency}
+                        formatDate={formatDate}
+                      />
+                    ))
+                  ) : (
+                    <View style={styles.noTransactionsContainer}>
+                      <Text style={styles.noTransactionsText}>
+                        No recent transactions
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <ActionButtons
+                onIncomePress={() => {
+                  setTransactionType("Income");
+                  setIsModalVisible(true);
+                }}
+                onExpensePress={() => {
+                  setTransactionType("Expense");
+                  setIsModalVisible(true);
+                }}
+              />
+
+              <TransactionModal
+                visible={isModalVisible}
+                type={transactionType}
+                amount={amount}
+                description={description}
+                selectedAccount={currentAccount}
+                selectedDate={selectedDate}
+                onAmountChange={setAmount}
+                onDescriptionChange={setDescription}
+                onDateChange={setSelectedDate}
+                onCancel={() => {
+                  setIsModalVisible(false);
+                  resetForm();
+                }}
+                onSave={handleAddTransaction}
+              />
+
+              <TransactionsBottomSheet
+                ref={bottomSheetRef}
+                transactions={allTransactions}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                onClose={handleSheetClose}
+                snapPoints={snapPoints}
+              />
+            </SafeAreaView>
+          </Animated.View>
+        </Animated.View>
+      </PanGestureHandler>
     </GestureHandlerRootView>
   );
 }
@@ -219,30 +288,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.large,
   },
-  accountInfoContainer: {
-    alignItems: "flex-start",
+  noAccountText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
     marginTop: 40,
-    marginBottom: 40,
-  },
-  accountName: {
-    fontSize: 20,
-    color: "#AAAAAA",
-    marginBottom: 8,
-  },
-  balanceContainer: {
-    alignItems: "flex-start", // Left aligned
-    marginTop: 40,
-    marginBottom: 50,
-  },
-  balanceAmount: {
-    fontSize: 56,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 8,
-  },
-  balanceLabel: {
-    fontSize: 20,
-    color: "#AAAAAA",
   },
   transactionHistoryContainer: {
     marginTop: spacing.large,
@@ -258,135 +308,6 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: colors.text,
   },
-  transactionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: "#1E1E1E",
-    padding: 16,
-  },
-  iconContainer: {
-    marginRight: 16,
-  },
-  transactionDetails: {
-    flex: 1,
-  },
-  descriptionText: {
-    fontSize: 18,
-    color: "#FFFFFF",
-  },
-  amountDate: {
-    alignItems: "flex-end",
-  },
-  amountText: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  dateText: {
-    fontSize: 14,
-    color: "#888888",
-    marginTop: 4,
-  },
-  incomeAmount: {
-    color: "#86CB8B",
-  },
-  expenseAmount: {
-    color: "#E38989",
-  },
-  actionContainerWrapper: {
-    paddingHorizontal: 24,
-  },
-  actionContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  actionButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: "#1E1E1E", // Added background to look more like a button
-    minWidth: 140,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  actionText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    marginTop: 12,
-    fontWeight: "600",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    width: "80%",
-    backgroundColor: "#1E1E1E",
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 20,
-  },
-  input: {
-    width: "100%",
-    height: 50,
-    backgroundColor: "#2C2C2C",
-    borderRadius: 10,
-    marginBottom: 15,
-    padding: 15,
-    color: "#FFFFFF",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: "#3A3A3A",
-  },
-  saveButton: {
-    backgroundColor: "#86CB8B",
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  negativeBalance: {
-    color: "#E38989",
-  },
   noTransactionsContainer: {
     padding: spacing.medium,
     alignItems: 'center',
@@ -399,51 +320,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.income,
   },
-  transactionItemSpacing: {
-    marginBottom: 12, // Add spacing between transaction cards
+  analyticsContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background,
   },
-  accountDisplay: {
-    width: "100%",
-    backgroundColor: "#2C2C2C",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-  },
-  accountLabel: {
-    fontSize: 14,
-    color: "#666666",
-    marginBottom: 4,
-  },
-  accountValue: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    fontWeight: "500",
-  },
-  bottomSheetBackground: {
-    backgroundColor: "#1A1A1A",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  bottomSheetIndicator: {
-    backgroundColor: "#666666",
-    width: 40,
-    height: 4,
-    marginTop: 8,
-  },
-  bottomSheetHeader: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2C2C2C",
-  },
-  bottomSheetTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
+  mainContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
   },
 });
