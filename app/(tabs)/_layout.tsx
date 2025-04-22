@@ -42,6 +42,14 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="credits"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="cash-outline" size={30} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
