@@ -1,29 +1,86 @@
-# Welcome to your Expo app 👋
+# ElaraLedger
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native mobile application built with Expo, likely designed for ledger management or financial tracking.
 
-## Get started
+## Technology Stack
 
-1. Install dependencies
+*   **Framework:** React Native
+*   **Platform:** Expo (v52)
+*   **Language:** TypeScript
+*   **Navigation:** Expo Router (File-based routing)
+*   **State Management:** Zustand
+*   **UI Components:** Expo components, `@expo/vector-icons`, `@gorhom/bottom-sheet`, custom components
+*   **Storage:** AsyncStorage
+*   **Testing:** Jest
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-   ```bash
+2.  **Start the development server:**
+    ```bash
     npx expo start
-   ```
+    ```
+    Follow the instructions in the terminal to open the app in an emulator, simulator, or on a physical device using the Expo Go app.
 
-In the output, you'll find options to open the app in a
+## Project Structure
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+```
+.
+├── app/                   # Main application code (using Expo Router)
+│   ├── (tabs)/            # Screens grouped under the main tab navigator
+│   │   ├── _layout.tsx    # Defines the tab navigator (Home, Accounts, Credits)
+│   │   ├── index.tsx      # Home/Dashboard tab screen
+│   │   ├── accounts.tsx   # Accounts management tab screen
+│   │   └── credits.tsx    # Credits related tab screen
+│   ├── components/        # UI components specific to the app directory
+│   ├── context/           # React Context providers (e.g., AccountProvider)
+│   ├── screens/           # Likely contains non-tab screens (if any)
+│   ├── store/ | stores/   # Zustand state management stores
+│   ├── styles/            # Shared styles
+│   ├── types/             # TypeScript type definitions
+│   ├── utils/             # Utility functions
+│   ├── _layout.tsx        # Root layout component (Stack Navigator, ThemeProvider, AccountProvider)
+│   └── +not-found.tsx     # Fallback screen for unknown routes
+├── assets/                # Static assets (images, fonts)
+│   └── fonts/
+├── components/            # Global reusable UI components (e.g., HapticTab)
+├── constants/             # Constant values (e.g., colors, configurations)
+├── hooks/                 # Custom React Hooks (e.g., useColorScheme)
+├── scripts/               # Utility scripts (e.g., reset-project.js)
+├── .expo/                 # Expo generated files (cache, settings)
+├── .git/                  # Git repository files
+├── node_modules/          # Project dependencies
+├── .gitignore             # Files ignored by Git
+├── app.json               # Expo configuration file
+├── babel.config.js        # Babel configuration
+├── expo-env.d.ts          # Expo TypeScript environment types
+├── package-lock.json      # Exact dependency versions
+├── package.json           # Project metadata and dependencies
+├── README.md              # This file
+└── tsconfig.json          # TypeScript configuration
+```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Key Components & Concepts
+
+*   **Navigation:** Handled by `expo-router`. The main navigation is a bottom tab bar defined in `app/(tabs)/_layout.tsx`. The root layout in `app/_layout.tsx` uses a Stack navigator.
+*   **State Management:** Uses `zustand` (likely configured in `app/store/` or `app/stores/`). Global account state seems to be managed via `app/context/AccountContext.tsx`.
+*   **Theming:** Supports light/dark mode using `@react-navigation/native`'s `ThemeProvider` and the `useColorScheme` hook.
+*   **Data Persistence:** Uses `@react-native-async-storage/async-storage` for storing data locally.
+*   **Custom UI:** Includes custom components like `HapticTab` in `components/` and potentially others in `app/components/`. Uses `@gorhom/bottom-sheet` for bottom sheet UIs.
+
+## Available Scripts
+
+*   `npm start`: Starts the Expo development server.
+*   `npm run android`: Starts the app on an Android emulator/device.
+*   `npm run ios`: Starts the app on an iOS simulator/device.
+*   `npm run web`: Starts the app in a web browser.
+*   `npm run test`: Runs tests using Jest.
+*   `npm run lint`: Lints the code using Expo's lint configuration.
+*   `npm run reset-project`: (As described in the original README) Moves starter code to `app-example` and creates a blank `app` directory.
 
 ## Get a fresh project
 
