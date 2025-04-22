@@ -20,7 +20,7 @@ export const spacing = {
 
 export const typography = {
   title: {
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: "bold",
     color: colors.text,
   },
@@ -62,4 +62,4 @@ export const layout = {
       elevation: 5,
     },
   },
-}; 
+};
