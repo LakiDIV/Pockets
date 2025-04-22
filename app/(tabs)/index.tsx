@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isTransactionsVisible, setIsTransactionsVisible] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -78,7 +79,7 @@ export default function HomeScreen() {
       type: transactionType,
       amount: numericAmount,
       description,
-      date: new Date().toISOString(),
+      date: selectedDate.toISOString(),
       accountId: selectedAccount.id,
     };
 
@@ -96,6 +97,7 @@ export default function HomeScreen() {
     setAmount("");
     setDescription("");
     setTransactionType("Income");
+    setSelectedDate(new Date());
   };
 
   const formatCurrency = useCallback((value: number) => {
@@ -184,8 +186,10 @@ export default function HomeScreen() {
           amount={amount}
           description={description}
           selectedAccount={selectedAccount}
+          selectedDate={selectedDate}
           onAmountChange={setAmount}
           onDescriptionChange={setDescription}
+          onDateChange={setSelectedDate}
           onCancel={() => {
             setIsModalVisible(false);
             resetForm();
@@ -244,12 +248,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.large,
   },
   sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.large,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.medium,
   },
-  sectionTitle: typography.title,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: colors.text,
+  },
   transactionItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -380,17 +388,16 @@ const styles = StyleSheet.create({
     color: "#E38989",
   },
   noTransactionsContainer: {
-    padding: spacing.large,
-    alignItems: "center",
+    padding: spacing.medium,
+    alignItems: 'center',
   },
   noTransactionsText: {
-    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 16,
   },
   viewAllButton: {
-    ...typography.body,
-    fontSize: 16,
+    fontSize: 14,
     color: colors.income,
-    fontWeight: "600",
   },
   transactionItemSpacing: {
     marginBottom: 12, // Add spacing between transaction cards

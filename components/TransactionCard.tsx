@@ -14,6 +14,8 @@ export function TransactionCard({
   formatCurrency,
   formatDate,
 }: TransactionCardProps) {
+  const isUpcoming = new Date(transaction.date) > new Date();
+
   return (
     <View style={[styles.transactionItem, styles.transactionItemSpacing]}>
       <View style={styles.iconContainer}>
@@ -28,7 +30,14 @@ export function TransactionCard({
         />
       </View>
       <View style={styles.transactionDetails}>
-        <Text style={styles.descriptionText}>{transaction.description}</Text>
+        <View style={styles.descriptionRow}>
+          <Text style={styles.descriptionText}>{transaction.description}</Text>
+          {isUpcoming && (
+            <View style={styles.upcomingBadge}>
+              <Text style={styles.upcomingText}>Upcoming</Text>
+            </View>
+          )}
+        </View>
       </View>
       <View style={styles.amountDate}>
         <Text
@@ -65,9 +74,32 @@ const styles = StyleSheet.create({
   transactionDetails: {
     flex: 1,
   },
-  descriptionText: typography.body,
+  descriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.small,
+  },
+  descriptionText: {
+    ...typography.body,
+    flex: 1,
+  },
+  upcomingBadge: {
+    backgroundColor: colors.income + '20', // Using income color with 20% opacity
+    paddingHorizontal: spacing.small,
+    paddingVertical: 4,
+    borderRadius: layout.borderRadius.small,
+    borderWidth: 1,
+    borderColor: colors.income + '40', // Using income color with 40% opacity
+  },
+  upcomingText: {
+    ...typography.caption,
+    color: colors.income,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   amountDate: {
     alignItems: "flex-end",
+    marginLeft: spacing.small,
   },
   amountText: {
     ...typography.body,
