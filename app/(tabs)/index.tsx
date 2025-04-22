@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
-  Animated,
-  Dimensions,
 } from "react-native";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StorageUtils } from "@/app/utils/storage";
@@ -25,8 +23,6 @@ import { TransactionModal } from "@/components/TransactionModal";
 import { TransactionsBottomSheet } from "@/components/TransactionsBottomSheet";
 import { colors, typography, spacing, layout } from "@/app/styles/shared";
 import { useAccount } from "@/app/context/AccountContext";
-import { PanGestureHandler, State } from "react-native-gesture-handler";
-import { Analytics } from "@/components/Analytics";
 
 export default function HomeScreen() {
   const { selectedAccount, refreshAccounts, getLatestAccountData } = useAccount();
@@ -40,8 +36,6 @@ export default function HomeScreen() {
   const [isTransactionsVisible, setIsTransactionsVisible] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const translateX = useRef(new Animated.Value(0)).current;
-  const screenWidth = Dimensions.get('window').width;
 
   const snapPoints = useMemo(() => ["50%", "85%"], []);
 
@@ -149,29 +143,6 @@ export default function HomeScreen() {
     []
   );
 
-  const onGestureEvent = Animated.event(
-    [{ nativeEvent: { translationX: translateX } }],
-    { useNativeDriver: true }
-  );
-
-  const onHandlerStateChange = (event) => {
-    if (event.nativeEvent.oldState === State.ACTIVE) {
-      const { translationX } = event.nativeEvent;
-      
-      if (translationX > 50) { // Threshold to show analytics
-        Animated.spring(translateX, {
-          toValue: screenWidth * 0.8,
-          useNativeDriver: true,
-        }).start();
-      } else {
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  };
-
   if (!currentAccount) {
     return (
       <SafeAreaView style={styles.container}>
@@ -184,97 +155,78 @@ export default function HomeScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PanGestureHandler
-        onGestureEvent={onGestureEvent}
-        onHandlerStateChange={onHandlerStateChange}
-      >
-        <Animated.View style={{ flex: 1 }}>
-          <View style={styles.analyticsContainer}>
-            <Analytics />
-          </View>
-          <Animated.View
-            style={[
-              styles.mainContainer,
-              {
-                transform: [{ translateX }],
-              },
-            ]}
-          >
-            <SafeAreaView style={styles.container}>
-              <View style={styles.mainContent}>
-                <AccountHeader
-                  account={currentAccount}
-                  balance={currentAccount.balance}
+      <SafeAreaView style={styles.container}>
+        <View style={styles.mainContent}>
+          <AccountHeader
+            account={currentAccount}
+            balance={currentAccount.balance}
+            formatCurrency={formatCurrency}
+          />
+
+          <View style={styles.transactionHistoryContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Transactions</Text>
+              <TouchableOpacity onPress={viewAllTransactions}>
+                <Text style={styles.viewAllButton}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {recentTransactions.length > 0 ? (
+              recentTransactions.map((transaction) => (
+                <TransactionCard
+                  key={transaction.id}
+                  transaction={transaction}
                   formatCurrency={formatCurrency}
+                  formatDate={formatDate}
                 />
-
-                <View style={styles.transactionHistoryContainer}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Recent Transactions</Text>
-                    <TouchableOpacity onPress={viewAllTransactions}>
-                      <Text style={styles.viewAllButton}>View All</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {recentTransactions.length > 0 ? (
-                    recentTransactions.map((transaction) => (
-                      <TransactionCard
-                        key={transaction.id}
-                        transaction={transaction}
-                        formatCurrency={formatCurrency}
-                        formatDate={formatDate}
-                      />
-                    ))
-                  ) : (
-                    <View style={styles.noTransactionsContainer}>
-                      <Text style={styles.noTransactionsText}>
-                        No recent transactions
-                      </Text>
-                    </View>
-                  )}
-                </View>
+              ))
+            ) : (
+              <View style={styles.noTransactionsContainer}>
+                <Text style={styles.noTransactionsText}>
+                  No recent transactions
+                </Text>
               </View>
+            )}
+          </View>
+        </View>
 
-              <ActionButtons
-                onIncomePress={() => {
-                  setTransactionType("Income");
-                  setIsModalVisible(true);
-                }}
-                onExpensePress={() => {
-                  setTransactionType("Expense");
-                  setIsModalVisible(true);
-                }}
-              />
+        <ActionButtons
+          onIncomePress={() => {
+            setTransactionType("Income");
+            setIsModalVisible(true);
+          }}
+          onExpensePress={() => {
+            setTransactionType("Expense");
+            setIsModalVisible(true);
+          }}
+        />
 
-              <TransactionModal
-                visible={isModalVisible}
-                type={transactionType}
-                amount={amount}
-                description={description}
-                selectedAccount={currentAccount}
-                selectedDate={selectedDate}
-                onAmountChange={setAmount}
-                onDescriptionChange={setDescription}
-                onDateChange={setSelectedDate}
-                onCancel={() => {
-                  setIsModalVisible(false);
-                  resetForm();
-                }}
-                onSave={handleAddTransaction}
-              />
+        <TransactionModal
+          visible={isModalVisible}
+          type={transactionType}
+          amount={amount}
+          description={description}
+          selectedAccount={currentAccount}
+          selectedDate={selectedDate}
+          onAmountChange={setAmount}
+          onDescriptionChange={setDescription}
+          onDateChange={setSelectedDate}
+          onCancel={() => {
+            setIsModalVisible(false);
+            resetForm();
+          }}
+          onSave={handleAddTransaction}
+        />
 
-              <TransactionsBottomSheet
-                ref={bottomSheetRef}
-                transactions={allTransactions}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-                onClose={handleSheetClose}
-                snapPoints={snapPoints}
-              />
-            </SafeAreaView>
-          </Animated.View>
-        </Animated.View>
-      </PanGestureHandler>
+        <TransactionsBottomSheet
+          ref={bottomSheetRef}
+          transactions={allTransactions}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+          onClose={handleSheetClose}
+          snapPoints={snapPoints}
+        />
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 }
@@ -319,15 +271,5 @@ const styles = StyleSheet.create({
   viewAllButton: {
     fontSize: 14,
     color: colors.income,
-  },
-  analyticsContainer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.background,
-  },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border,
   },
 });
