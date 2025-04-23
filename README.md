@@ -1,6 +1,11 @@
-# ElaraLedger
+# Pockets
 
-A React Native mobile application built with Expo, likely designed for ledger management or financial tracking.
+A React Native mobile application for financial tracking, built with Expo and fully coded by AI under human supervision and guidance.
+
+
+![GpJYlHpa4AEtque](https://github.com/user-attachments/assets/06651eb5-3946-484b-adae-8d3ae7e012b5)
+
+
 
 ## Technology Stack
 
